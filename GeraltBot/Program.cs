@@ -8,6 +8,9 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using Newtonsoft.Json;
+using GeraltBot.Models;
+using GeraltBot.Data;
+
 
 namespace GeraltBot
 {
@@ -20,6 +23,7 @@ namespace GeraltBot
             // MainAsync method and wait until it finishes (which should be never).
             new Program().MainAsync().GetAwaiter().GetResult();
         }
+
 
         private readonly DiscordSocketClient _client;
 
@@ -70,7 +74,7 @@ namespace GeraltBot
         // If this method is getting pretty long, you can seperate it out into another file using partials.
         private static IServiceProvider ConfigureServices()
         {
-            var map = new ServiceCollection();
+            var map = new ServiceCollection().AddDbContext<ApplicationDbContext>();
 
             // When all your required services are in the collection, build the container.
             // Tip: There's an overload taking in a 'validateScopes' bool to make sure
@@ -116,10 +120,7 @@ namespace GeraltBot
             // Centralize the logic for commands into a separate method.
             await InitCommands();
 
-            // Login and connect.
             await _client.LoginAsync(TokenType.Bot,
-                // < DO NOT HARDCODE YOUR TOKEN >
-                //Environment.GetEnvironmentVariable("DiscordToken"));
                 JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json")).Token);
             await _client.StartAsync();
 
@@ -129,10 +130,6 @@ namespace GeraltBot
 
         private async Task InitCommands()
         {
-            // Either search the program and add all Module classes that can be found.
-            // Module classes MUST be marked 'public' or they will be ignored.
-            // You also need to pass your 'IServiceProvider' instance now,
-            // so make sure that's done before you get here.
             await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
             // Or add Modules manually if you prefer to be a little more explicit:
             //      await _commands.AddModuleAsync<SomeModule>(_services);
