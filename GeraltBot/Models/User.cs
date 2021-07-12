@@ -11,7 +11,9 @@ namespace GeraltBot.Models
     {
         [Key]
         public long Id { get; set; }
-        public string Name { get; set; }
+        public string Username { get; set; }
+        public ulong UserId { get; set; }
+        public ulong ServerId { get; set; }
         public string ApiKey { get; set; }
         public string City { get; set; }
         public double x { get; set; }
