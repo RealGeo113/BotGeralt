@@ -8,10 +8,16 @@ namespace GeraltBot.Models
 {
     public class Config
     {
-        public string Token { get; set; }
+        public string BotToken { get; set; }
+        public string ApiKey { get; set; }
+        public Database Database { get; set; }
+    }
+
+    public class Database
+    {
         public string Host { get; set; }
-        public string DbName { get; set; }
-        public string DbUser { get; set; }
-        public string DbPassword { get; set; }
+        public string Name { get; set; }
+        public string User { get; set; }
+        public string Password { get; set; }
     }
 }

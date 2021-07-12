@@ -32,7 +32,7 @@ namespace GeraltBot.Data
         {
             Config config = JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json"));
             var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
-            optionsBuilder.UseNpgsql(String.Format("Host={0};Database={1};Username={2};Password={3}", config.Host, config.DbName, config.DbUser, config.DbPassword));
+            optionsBuilder.UseNpgsql(String.Format("Host={0};Database={1};Username={2};Password={3}", config.Database.Host, config.Database.Name, config.Database.User, config.Database.Password));
 
             return new ApplicationDbContext(optionsBuilder.Options, config);
         }
