@@ -17,7 +17,7 @@ namespace GeraltBot
     class Program
     {
         // Program entry point
-        static void Main(string[] args)
+        static void Main()
         {
             // Call the Program constructor, followed by the 
             // MainAsync method and wait until it finishes (which should be never).
@@ -121,7 +121,7 @@ namespace GeraltBot
             await InitCommands();
 
             await _client.LoginAsync(TokenType.Bot,
-                JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json")).Token);
+                JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json")).BotToken);
             await _client.StartAsync();
 
             // Wait infinitely so your bot actually stays connected.
@@ -142,8 +142,7 @@ namespace GeraltBot
         private async Task HandleCommandAsync(SocketMessage arg)
         {
             // Bail out if it's a System Message.
-            var msg = arg as SocketUserMessage;
-            if (msg == null) return;
+            if (arg is not SocketUserMessage msg) return;
 
             // We don't want the bot to respond to itself or other bots.
             if (msg.Author.Id == _client.CurrentUser.Id || msg.Author.IsBot) return;
