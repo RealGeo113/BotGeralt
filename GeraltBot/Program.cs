@@ -26,7 +26,6 @@ namespace GeraltBot
 
 
         private readonly DiscordSocketClient _client;
-
         // Keep the CommandService and DI container around for use with commands.
         // These two types require you install the Discord.Net.Commands package.
         private readonly CommandService _commands;
@@ -63,18 +62,17 @@ namespace GeraltBot
             // Subscribe the logging handler to both the client and the CommandService.
             _client.Log += Log;
             _commands.Log += Log;
-
             // Setup your DI container.
-            _services = ConfigureServices();
-
+            _services = ConfigureServices(_client);
         }
 
         // If any services require the client, or the CommandService, or something else you keep on hand,
         // pass them as parameters into this method as needed.
         // If this method is getting pretty long, you can seperate it out into another file using partials.
-        private static IServiceProvider ConfigureServices()
+        private static IServiceProvider ConfigureServices(DiscordSocketClient discord)
         {
-            var map = new ServiceCollection().AddDbContext<ApplicationDbContext>();
+            var map = new ServiceCollection().AddDbContext<ApplicationDbContext>()
+                .AddSingleton(discord);
 
             // When all your required services are in the collection, build the container.
             // Tip: There's an overload taking in a 'validateScopes' bool to make sure
@@ -119,11 +117,9 @@ namespace GeraltBot
         {
             // Centralize the logic for commands into a separate method.
             await InitCommands();
-
             await _client.LoginAsync(TokenType.Bot,
-                JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json")).Token);
+                JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json")).BotToken);
             await _client.StartAsync();
-
             // Wait infinitely so your bot actually stays connected.
             await Task.Delay(Timeout.Infinite);
         }
@@ -138,6 +134,7 @@ namespace GeraltBot
             // Subscribe a handler to see if a message invokes a command.
             _client.MessageReceived += HandleCommandAsync;
         }
+
 
         private async Task HandleCommandAsync(SocketMessage arg)
         {
@@ -154,7 +151,7 @@ namespace GeraltBot
             // you want to prefix your commands with.
             // Uncomment the second half if you also want
             // commands to be invoked by mentioning the bot instead.
-            if (msg.HasCharPrefix('!', ref pos) /* || msg.HasMentionPrefix(_client.CurrentUser, ref pos) */)
+            if (msg.HasMentionPrefix(_client.CurrentUser, ref pos))
             {
                 // Create a Command Context.
                 var context = new SocketCommandContext(_client, msg);

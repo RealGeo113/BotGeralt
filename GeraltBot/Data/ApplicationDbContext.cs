@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -15,8 +14,11 @@ namespace GeraltBot.Data
     public class ApplicationDbContext : DbContext
     {
         public DbSet<User> Users { get; set; }
+        private Config _config { get; set; }
 
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, Config config) : base(options) { }
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) {
+            _config = JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json"));
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -24,17 +26,22 @@ namespace GeraltBot.Data
 
             modelBuilder.Entity<User>().ToTable("Users");
         }
-
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) => optionsBuilder.UseNpgsql(String.Format("Host={0};Database={1};Username={2};Password={3}", _config.Database.Host, _config.Database.Name, _config.Database.User, _config.Database.Password));
     }
     public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
     {
+        private Config _config { get; set; }
+
+        public ApplicationDbContextFactory()
+        {
+            _config = JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json"));
+        }
         public ApplicationDbContext CreateDbContext(string[] args)
         {
-            Config config = JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json"));
             var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
-            optionsBuilder.UseNpgsql(String.Format("Host={0};Database={1};Username={2};Password={3}", config.Database.Host, config.Database.Name, config.Database.User, config.Database.Password));
+            optionsBuilder.UseNpgsql(String.Format("Host={0};Database={1};Username={2};Password={3}", _config.Database.Host, _config.Database.Name, _config.Database.User, _config.Database.Password));
 
-            return new ApplicationDbContext(optionsBuilder.Options, config);
+            return new ApplicationDbContext(optionsBuilder.Options);
         }
     }
 }
