@@ -14,6 +14,7 @@ namespace GeraltBot.Data
     public class ApplicationDbContext : DbContext
     {
         public DbSet<User> Users { get; set; }
+        public DbSet<Server> Servers { get; set; } 
         private Config _config { get; set; }
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) {
@@ -25,6 +26,7 @@ namespace GeraltBot.Data
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.Entity<User>().ToTable("Users");
+            modelBuilder.Entity<Server>().ToTable("Server");
         }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) => optionsBuilder.UseNpgsql(String.Format("Host={0};Database={1};Username={2};Password={3}", _config.Database.Host, _config.Database.Name, _config.Database.User, _config.Database.Password));
     }

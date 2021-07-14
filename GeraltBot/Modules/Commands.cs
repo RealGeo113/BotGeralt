@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 namespace GeraltBot.Modules
 {
@@ -69,10 +70,9 @@ namespace GeraltBot.Modules
 			{
 				var result = await _client.miejscowoscAsync(location, _config.ApiKey);
 
-				User user = new User();
 				if (result.x != 0 && result.y != 0)
 				{
-					user = await _db.Users.AsAsyncEnumerable().Where(u => u.UserId == Context.Message.Author.Id && u.ChannelId == Context.Channel.Id).FirstOrDefaultAsync();
+					User user = await _db.Users.Include(u => u.Server).AsAsyncEnumerable().Where(u => u.UserId == (long)Context.Message.Author.Id && u.ServerId == (long)Context.Guild.Id).FirstOrDefaultAsync();
 
 					if (user != null)
 					{
@@ -84,14 +84,27 @@ namespace GeraltBot.Modules
 					{
 						User newUser = new User()
 						{
-							UserId = Context.Message.Author.Id,
-							ServerId = Context.Guild.Id,
-							ChannelId = Context.Guild.DefaultChannel.Id,
+							UserId = (long)Context.Message.Author.Id,
 							ApiKey = _config.ApiKey,
 							City = location,
 							x = result.x,
 							y = result.y
 						};
+
+						Server server = await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).FirstOrDefaultAsync();
+						if (server != null)
+                        {
+							newUser.Server = server;
+                        }
+                        else
+                        {
+							Server newServer = new Server()
+							{
+								ServerId = (long) Context.Guild.Id,
+								ChannelId = (long) Context.Guild.DefaultChannel.Id
+							};
+							newUser.Server = newServer;
+                        }
 
 						_db.Users.Add(newUser);
 					}
@@ -111,7 +124,7 @@ namespace GeraltBot.Modules
         {
             if (Context.IsPrivate)
             {
-				List<User> users = await _db.Users.AsAsyncEnumerable().Where(u => u.UserId == Context.Message.Author.Id).ToListAsync();
+				List<User> users = await _db.Users.AsAsyncEnumerable().Where(u => u.UserId == (long)Context.Message.Author.Id).ToListAsync();
 				foreach (User user in users)
 				{
 					user.ApiKey = key;
@@ -131,7 +144,19 @@ namespace GeraltBot.Modules
         {
             if (Context.Guild.GetUser(Context.Message.Author.Id).GuildPermissions.Administrator)
             {
-				await _db.Users.AsAsyncEnumerable().Where(u => u.ServerId == Context.Guild.Id).ForEachAsync(u => u.ChannelId = Context.Channel.Id);
+				if(await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).AnyAsync())
+                {
+					var server = _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).FirstOrDefaultAsync();
+                }
+                else
+                {
+					Server server = new Server()
+					{
+						ServerId = (long)Context.Guild.Id,
+						ChannelId = (long)Context.Channel.Id
+					};
+					_db.Servers.Add(server);
+                }
 				await _db.SaveChangesAsync();
 				await ReplyAsync("Zmieniono kanał");
             }
@@ -160,7 +185,7 @@ namespace GeraltBot.Modules
 			{
 				while (true)
 				{
-					List<User> users = await _db.Users.ToListAsync();
+					List<User> users = await _db.Users.Include(u => u.Server).AsAsyncEnumerable().ToListAsync();
 					foreach (User item in users)
 					{
 						TimeSpan span = DateTime.Now - item.LastMessage;
@@ -169,9 +194,9 @@ namespace GeraltBot.Modules
 							var result = await _client.szukaj_burzyAsync(item.y.ToString().Replace(',', '.'), item.x.ToString().Replace(',', '.'), 25, _config.ApiKey);
 							if (result.odleglosc != 0)
 							{
-								SocketUser user = _discord.GetUser(item.UserId);
-								var server = _discord.GetGuild(item.ServerId);
-								await server.GetTextChannel(item.ChannelId).SendMessageAsync(string.Format("{0} Burza psiakrew...", user.Mention));
+								SocketUser user = _discord.GetUser((ulong)item.UserId);
+								var server = _discord.GetGuild((ulong)item.ServerId);
+								await server.GetTextChannel((ulong)item.Server.ChannelId).SendMessageAsync(string.Format("{0} Burza psiakrew...", user.Mention));
 								
 								item.LastMessage = DateTime.Now;
 							}

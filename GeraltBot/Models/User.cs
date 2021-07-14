@@ -12,9 +12,10 @@ namespace GeraltBot.Models
     {
         [Key]
         public long Id { get; set; }
-        public ulong UserId { get; set; }
-        public ulong ServerId { get; set; }
-        public ulong ChannelId { get; set; }
+        public long UserId { get; set; }
+        [ForeignKey("Server")]
+        public long ServerId { get; set; }
+        public Server Server { get; set; }
         public string ApiKey { get; set; }
         public string City { get; set; }
         public float? x { get; set; }
