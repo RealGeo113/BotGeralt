@@ -195,7 +195,7 @@ namespace GeraltBot.Modules
 							if (result.odleglosc != 0)
 							{
 								SocketUser user = _discord.GetUser((ulong)item.UserId);
-								var server = _discord.GetGuild((ulong)item.ServerId);
+								var server = _discord.GetGuild((ulong)item.Server.ServerId);
 								await server.GetTextChannel((ulong)item.Server.ChannelId).SendMessageAsync(string.Format("{0} Burza psiakrew...", user.Mention));
 								
 								item.LastMessage = DateTime.Now;
