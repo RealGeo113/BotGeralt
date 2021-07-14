@@ -72,7 +72,7 @@ namespace GeraltBot.Modules
 
 				if (result.x != 0 && result.y != 0)
 				{
-					User user = await _db.Users.Include(u => u.Server).AsAsyncEnumerable().Where(u => u.UserId == (long)Context.Message.Author.Id && u.ServerId == (long)Context.Guild.Id).FirstOrDefaultAsync();
+					User user = await _db.Users.Include(u => u.Server).AsAsyncEnumerable().Where(u => u.UserId == (long)Context.Message.Author.Id && u.Server.ServerId == (long)Context.Guild.Id).FirstOrDefaultAsync();
 
 					if (user != null)
 					{
