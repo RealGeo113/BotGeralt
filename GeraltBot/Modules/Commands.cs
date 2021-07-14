@@ -210,3 +210,15 @@ namespace GeraltBot.Modules
 		}
 	}
 }
+        // TODO:
+        // 1. Take user location
+        // 2. If exists, save to database
+        // 3. Check if any warnings for specified location are present
+        //	3a. I have only 10 calls per minute, can I schedule checks for different users
+        // 4. If warning is present, return message about weather
+        //	3b. Save user Api key if he provides one
+        // TODO:
+        // 1. Take user location
+        // 2. Call burze.dzis.net API and check if location exists, if not reply with 
+        //	  "Wrong location" message
+        // 3. If exist, show thunderstorm warnings for location in 25km range

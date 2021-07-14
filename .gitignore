@@ -363,3 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 /GeraltBot/Migrations
 *.json
+/GeraltBot/soap.xml
