@@ -10,6 +10,7 @@ using Discord.WebSocket;
 using Newtonsoft.Json;
 using GeraltBot.Models;
 using GeraltBot.Data;
+using ServiceReference1;
 
 
 namespace GeraltBot
@@ -25,15 +26,18 @@ namespace GeraltBot
         }
 
 
-        private readonly DiscordSocketClient _client;
+        private readonly DiscordSocketClient _discord;
         // Keep the CommandService and DI container around for use with commands.
         // These two types require you install the Discord.Net.Commands package.
         private readonly CommandService _commands;
         private readonly IServiceProvider _services;
-
+        private readonly Config _config;
+        private readonly serwerSOAPPortClient _client;
         private Program()
         {
-            _client = new DiscordSocketClient(new DiscordSocketConfig
+            _client = new serwerSOAPPortClient();
+            _config = JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json"));
+            _discord = new DiscordSocketClient(new DiscordSocketConfig
             {
                 // How much logging do you want to see?
                 LogLevel = LogSeverity.Info,
@@ -60,19 +64,19 @@ namespace GeraltBot
             });
 
             // Subscribe the logging handler to both the client and the CommandService.
-            _client.Log += Log;
+            _discord.Log += Log;
             _commands.Log += Log;
             // Setup your DI container.
-            _services = ConfigureServices(_client);
+            _services = ConfigureServices();
         }
 
         // If any services require the client, or the CommandService, or something else you keep on hand,
         // pass them as parameters into this method as needed.
         // If this method is getting pretty long, you can seperate it out into another file using partials.
-        private static IServiceProvider ConfigureServices(DiscordSocketClient discord)
+        private IServiceProvider ConfigureServices()
         {
             var map = new ServiceCollection().AddDbContext<ApplicationDbContext>()
-                .AddSingleton(discord);
+                .AddSingleton(_discord).AddSingleton(_config).AddSingleton(_client);
 
             // When all your required services are in the collection, build the container.
             // Tip: There's an overload taking in a 'validateScopes' bool to make sure
@@ -117,9 +121,9 @@ namespace GeraltBot
         {
             // Centralize the logic for commands into a separate method.
             await InitCommands();
-            await _client.LoginAsync(TokenType.Bot,
-                JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json")).BotToken);
-            await _client.StartAsync();
+            await _discord.LoginAsync(TokenType.Bot,
+                _config.BotToken);
+            await _discord.StartAsync();
             // Wait infinitely so your bot actually stays connected.
             await Task.Delay(Timeout.Infinite);
         }
@@ -132,7 +136,7 @@ namespace GeraltBot
             // Note that the first one is 'Modules' (plural) and the second is 'Module' (singular).
 
             // Subscribe a handler to see if a message invokes a command.
-            _client.MessageReceived += HandleCommandAsync;
+            _discord.MessageReceived += HandleCommandAsync;
         }
 
 
@@ -142,7 +146,7 @@ namespace GeraltBot
             if (arg is not SocketUserMessage msg) return;
 
             // We don't want the bot to respond to itself or other bots.
-            if (msg.Author.Id == _client.CurrentUser.Id || msg.Author.IsBot) return;
+            if (msg.Author.Id == _discord.CurrentUser.Id || msg.Author.IsBot) return;
 
             // Create a number to track where the prefix ends and the command begins
             int pos = 0;
@@ -150,10 +154,10 @@ namespace GeraltBot
             // you want to prefix your commands with.
             // Uncomment the second half if you also want
             // commands to be invoked by mentioning the bot instead.
-            if (msg.HasMentionPrefix(_client.CurrentUser, ref pos))
+            if (msg.HasMentionPrefix(_discord.CurrentUser, ref pos))
             {
                 // Create a Command Context.
-                var context = new SocketCommandContext(_client, msg);
+                var context = new SocketCommandContext(_discord, msg);
 
                 // Execute the command. (result does not indicate a return value, 
                 // rather an object stating if the command executed successfully).

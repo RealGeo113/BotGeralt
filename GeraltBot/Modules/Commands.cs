@@ -22,10 +22,10 @@ namespace GeraltBot.Modules
 		private ApplicationDbContext _db { get; set; }
 		private serwerSOAPPortClient _client { get; set; }
 		private DiscordSocketClient _discord { get; set; }
-		public CommandModule(ApplicationDbContext db, DiscordSocketClient discord)
+		public CommandModule(ApplicationDbContext db, DiscordSocketClient discord, Config config, serwerSOAPPortClient client)
 		{
-			_config = JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json"));
-			_client = new serwerSOAPPortClient();
+			_config = config;
+			_client = client;
 			_db = db;
 			_discord = discord;
 		}
@@ -79,6 +79,8 @@ namespace GeraltBot.Modules
 						user.City = location;
 						user.x = result.x;
 						user.y = result.y;
+						user.LastStorm = new DateTime();
+						user.StormActive = false;
 					}
 					else
 					{
@@ -169,12 +171,12 @@ namespace GeraltBot.Modules
 		private DiscordSocketClient _discord { get; set; }
 		private serwerSOAPPortClient _client { get; set; }
 		private Config _config { get; set; }
-		public StormModule(ApplicationDbContext db, DiscordSocketClient discord)
+		public StormModule(ApplicationDbContext db, DiscordSocketClient discord, Config config, serwerSOAPPortClient client)
 		{
 			_db = db;
 			_discord = discord;
-			_client = new serwerSOAPPortClient();
-			_config = JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json"));
+			_client = client;
+			_config = config;
 
 			CheckStorm();
 		}
@@ -188,21 +190,25 @@ namespace GeraltBot.Modules
 					List<User> users = await _db.Users.Include(u => u.Server).AsAsyncEnumerable().ToListAsync();
 					foreach (User item in users)
 					{
-						TimeSpan span = DateTime.Now - item.LastMessage;
-						if(span.TotalHours > 12)
-                        {
-							var result = await _client.szukaj_burzyAsync(item.y.ToString().Replace(',', '.'), item.x.ToString().Replace(',', '.'), 25, _config.ApiKey);
-							if (result.odleglosc != 0)
+						var result = await _client.szukaj_burzyAsync(item.y.ToString().Replace(',', '.'), item.x.ToString().Replace(',', '.'), 25, item.ApiKey);
+						TimeSpan span = DateTime.Now - item.LastStorm;
+						if (result.odleglosc != 0)
+						{
+							if (!item.StormActive)
 							{
 								SocketUser user = _discord.GetUser((ulong)item.UserId);
 								var server = _discord.GetGuild((ulong)item.Server.ServerId);
 								await server.GetTextChannel((ulong)item.Server.ChannelId).SendMessageAsync(string.Format("{0} Burza psiakrew...", user.Mention));
-								
-								item.LastMessage = DateTime.Now;
+								item.StormActive = true;
 							}
+							item.LastStorm = DateTime.Now;
 						}
+						else
+						{
+							if (span.TotalMinutes > 30 && item.StormActive) item.StormActive = false;
+						}
+						await _db.SaveChangesAsync();
 					}
-					await _db.SaveChangesAsync();
 					await Task.Delay(60000);
 				}
 			});
@@ -210,15 +216,3 @@ namespace GeraltBot.Modules
 		}
 	}
 }
-        // TODO:
-        // 1. Take user location
-        // 2. If exists, save to database
-        // 3. Check if any warnings for specified location are present
-        //	3a. I have only 10 calls per minute, can I schedule checks for different users
-        // 4. If warning is present, return message about weather
-        //	3b. Save user Api key if he provides one
-        // TODO:
-        // 1. Take user location
-        // 2. Call burze.dzis.net API and check if location exists, if not reply with 
-        //	  "Wrong location" message
-        // 3. If exist, show thunderstorm warnings for location in 25km range

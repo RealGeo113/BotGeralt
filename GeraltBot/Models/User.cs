@@ -20,6 +20,7 @@ namespace GeraltBot.Models
         public string City { get; set; }
         public float? x { get; set; }
         public float? y { get; set; }
-        public DateTime LastMessage { get; set; }
+        public DateTime LastStorm { get; set; }
+        public bool StormActive { get; set; }
     }
 }
