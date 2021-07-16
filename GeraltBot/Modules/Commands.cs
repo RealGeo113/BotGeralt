@@ -215,4 +215,25 @@ namespace GeraltBot.Modules
 			return Task.CompletedTask;
 		}
 	}
+	public class Events : ModuleBase<SocketCommandContext>
+	{
+		private readonly ApplicationDbContext _db;
+		private readonly DiscordSocketClient _discord;
+        public Events(DiscordSocketClient discord, ApplicationDbContext db)
+        {
+			_discord = discord;
+			_db = db;
+
+			_discord.LeftGuild += LeftGuild; 
+        }
+
+		public async Task LeftGuild(SocketGuild guild)
+        {
+			List<User> users = _db.Users.Include(u => u.Server).Where(u => u.Server.ServerId == (long)guild.Id).ToListAsync().Result;
+			_db.Users.RemoveRange(users);
+			var server = _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)guild.Id).FirstOrDefaultAsync();
+			_db.Servers.Remove(server.Result);
+			await _db.SaveChangesAsync();
+        }
+	}
 }
