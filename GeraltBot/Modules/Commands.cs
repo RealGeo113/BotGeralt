@@ -30,6 +30,34 @@ namespace GeraltBot.Modules
 			_discord = discord;
 		}
 
+
+		public async Task ChangeChannel(SocketGuildChannel channel)
+        {
+			if(channel != null)
+            {
+				if (Context.Guild.GetUser(Context.Message.Author.Id).GuildPermissions.Administrator)
+				{
+					if (await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).AnyAsync())
+					{
+						await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).ForEachAsync(s => s.ChannelId = (long)channel.Id);
+					}
+					else
+					{
+						Server server = new Server()
+						{
+							ServerId = (long)Context.Guild.Id,
+							ChannelId = (long)Context.Channel.Id
+						};
+						_db.Servers.Add(server);
+					}
+
+					await _db.SaveChangesAsync();
+					await ReplyAsync("Zmieniono kanał");
+					Console.WriteLine($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator} ({Context.Message.Author.Id}) changed channel from {Context.Channel.Name} ({Context.Channel.Id}) to {Context.Channel.Name}");
+				}
+			}
+		}
+
 		[Command("burza")]
 		[Summary("Psiakrew")]
 		public async Task Psiakrew()
@@ -39,7 +67,7 @@ namespace GeraltBot.Modules
 
 		[Command("burza")]
 		[Summary("Checks for storm in 25km from specified location")]
-		public async Task Test([Remainder][Summary("Location to test")] string location)
+		public async Task CheckStorm([Remainder][Summary("Location to test")] string location)
 		{
 			var result = await _client.miejscowoscAsync(location, _config.ApiKey);
 			var id = Context.Message.Author.Id;
@@ -49,20 +77,31 @@ namespace GeraltBot.Modules
 
 				if (thunderstorm.odleglosc != 0)
 				{
-					await ReplyAsync(string.Format("{0} Burza Psiakrew...", Context.Message.Author.Mention));
+					Embed embed = new EmbedBuilder()
+						.WithColor(new Color(0,0,0))
+						.WithTitle("Szczegóły burzy")
+						.AddField("Lokalizacja", location, true)
+						.AddField("Odleglosc", thunderstorm.odleglosc, true)
+						.AddField("Ilosc", thunderstorm.liczba, true)
+						.AddField("Kierunek", thunderstorm.kierunek, true)
+						.Build();
+
+					await ReplyAsync($"{Context.Message.Author.Mention} Burza psiakrew...");
+					await ReplyAsync(embed: embed);
 				}
 				else
 				{
-					await ReplyAsync(string.Format("{0} Ciemno wszędzie, głucho wszędzie...", Context.Message.Author.Mention));
+					await ReplyAsync($"{Context.Message.Author.Mention} Ciemno wszędzie, głucho wszędzie...");
 				}
 			}
 			else
 			{
-				await ReplyAsync(string.Format("{0} Co to za zadupie?", Context.Message.Author.Mention));
+				await ReplyAsync($"{Context.Message.Author.Mention} Co to za zadupie?");
 			}
 		}
 
 		[Command("zapisz")]
+		[Alias("dodaj", "add", "save")]
 		[Summary("Saves user location in database for automated storm checks")]
 		public async Task Save([Remainder][Summary("Location to save")] string location)
 		{
@@ -111,11 +150,11 @@ namespace GeraltBot.Modules
 						_db.Users.Add(newUser);
 					}
 					await _db.SaveChangesAsync();
-					await ReplyAsync(string.Format("{0} Dodano do bazy", Context.Message.Author.Mention));
+					await ReplyAsync($"{Context.Message.Author.Mention} Dodano do bazy");
 				}
 				else
 				{
-					await ReplyAsync(string.Format("{0} Co to za zadupie?", Context.Message.Author.Mention));
+					await ReplyAsync($"{Context.Message.Author.Mention} Co to za zadupie?");
 				}
 			}
 		}
@@ -126,43 +165,35 @@ namespace GeraltBot.Modules
         {
             if (Context.IsPrivate)
             {
-				List<User> users = await _db.Users.AsAsyncEnumerable().Where(u => u.UserId == (long)Context.Message.Author.Id).ToListAsync();
-				foreach (User user in users)
-				{
-					user.ApiKey = key;
-				}
-				await _db.SaveChangesAsync();
-				await ReplyAsync(String.Format("{0} Klucz API został zmieniony", Context.Message.Author.Mention));
+                if (_client.KeyAPIAsync(key).Result)
+                {
+					List<User> users = await _db.Users.AsAsyncEnumerable().Where(u => u.UserId == (long)Context.Message.Author.Id).ToListAsync();
+					foreach (User user in users)
+					{
+						user.ApiKey = key;
+					}
+					await _db.SaveChangesAsync();
+					await ReplyAsync($"{Context.Message.Author.Mention} Klucz API został zmieniony.");
+					Console.WriteLine($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator} ({Context.Message.Author.Id}) changed API Key to: {key}");
+                }
+                else
+                {
+					await ReplyAsync($"Klucz `{key}` jest nieprawidłowy.");
+                }
 			}
             else
             {
-				await ReplyAsync(String.Format("{0} Wyślij mi klucz w wiadomości prywatnej!", Context.Message.Author.Mention));
+				await ReplyAsync($"{Context.Message.Author.Mention} Wyślij mi klucz w wiadomości prywatnej!");
             }
         }
 
 		[Command("tutaj")]
 		[Summary("Changes channel Geralt displies warning messages on")]
-		public async Task ChangeChannel()
+		[RequireUserPermission(GuildPermission.Administrator)]
+		public async Task ChangeChannelCommand()
         {
-            if (Context.Guild.GetUser(Context.Message.Author.Id).GuildPermissions.Administrator)
-            {
-				if(await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).AnyAsync())
-                {
-					var server = _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).FirstOrDefaultAsync();
-                }
-                else
-                {
-					Server server = new Server()
-					{
-						ServerId = (long)Context.Guild.Id,
-						ChannelId = (long)Context.Channel.Id
-					};
-					_db.Servers.Add(server);
-                }
-				await _db.SaveChangesAsync();
-				await ReplyAsync("Zmieniono kanał");
-            }
-        }
+			await ChangeChannel(Context.Guild.Channels.Where(c => c.Id == Context.Channel.Id).FirstOrDefault());
+		}
 	}
 
 	public class StormModule : ModuleBase<SocketCommandContext>
@@ -190,15 +221,29 @@ namespace GeraltBot.Modules
 					List<User> users = await _db.Users.Include(u => u.Server).AsAsyncEnumerable().ToListAsync();
 					foreach (User item in users)
 					{
-						var result = await _client.szukaj_burzyAsync(item.y.ToString().Replace(',', '.'), item.x.ToString().Replace(',', '.'), 25, item.ApiKey);
+						var thunderstorm = await _client.szukaj_burzyAsync(item.y.ToString().Replace(',', '.'), item.x.ToString().Replace(',', '.'), 10, item.ApiKey);
 						TimeSpan span = DateTime.Now - item.LastStorm;
-						if (result.odleglosc != 0)
+						if (thunderstorm.odleglosc != 0 && thunderstorm.liczba > 10)
 						{
 							if (!item.StormActive)
 							{
 								SocketUser user = _discord.GetUser((ulong)item.UserId);
 								var server = _discord.GetGuild((ulong)item.Server.ServerId);
-								await server.GetTextChannel((ulong)item.Server.ChannelId).SendMessageAsync(string.Format("{0} Burza psiakrew...", user.Mention));
+
+								Embed embed = new EmbedBuilder()
+									.WithColor(new Color(0, 0, 0))
+									.WithTitle("Szczegóły burzy")
+									.AddField("Lokalizacja", item.City, true)
+									.AddField("Odleglosc", thunderstorm.odleglosc, true)
+									.AddField("Ilosc", thunderstorm.liczba, true)
+									.AddField("Kierunek", thunderstorm.kierunek, true)
+									.Build();
+
+								await ReplyAsync($"{Context.Message.Author.Mention} Burza psiakrew...");
+								await ReplyAsync(embed: embed);
+								var textChannel = server.GetTextChannel((ulong)item.Server.ChannelId);
+								await textChannel.SendMessageAsync(string.Format("{0} Burza psiakrew...", user.Mention));
+								await textChannel.SendMessageAsync(embed: embed);
 								item.StormActive = true;
 							}
 							item.LastStorm = DateTime.Now;
@@ -224,12 +269,27 @@ namespace GeraltBot.Modules
 			_discord = discord;
 			_db = db;
 
-			_discord.LeftGuild += LeftGuild; 
+			_discord.LeftGuild += LeftGuild;
+			_discord.ChannelDestroyed += ChannelDestroyed;
         }
 
-		public async Task LeftGuild(SocketGuild guild)
+        private async Task ChannelDestroyed(SocketChannel channel)
         {
-			List<User> users = _db.Users.Include(u => u.Server).Where(u => u.Server.ServerId == (long)guild.Id).ToListAsync().Result;
+			await _db.Servers
+				.AsAsyncEnumerable()
+				.Where(s => s.ChannelId == (long)channel.Id)
+				.ForEachAsync(s => s.ChannelId = (long)_discord.GetGuild((ulong)s.ServerId).DefaultChannel.Id);
+
+			await _db.SaveChangesAsync();
+		}
+
+        public async Task LeftGuild(SocketGuild guild)
+        {
+			List<User> users = _db.Users
+				.Include(u => u.Server)
+				.Where(u => u.Server.ServerId == (long)guild.Id)
+				.ToListAsync().Result;
+
 			_db.Users.RemoveRange(users);
 			var server = _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)guild.Id).FirstOrDefaultAsync();
 			_db.Servers.Remove(server.Result);
