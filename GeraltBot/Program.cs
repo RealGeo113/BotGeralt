@@ -11,7 +11,7 @@ using Newtonsoft.Json;
 using GeraltBot.Models;
 using GeraltBot.Data;
 using ServiceReference1;
-
+using GeraltBot.Services;
 
 namespace GeraltBot
 {
@@ -30,6 +30,10 @@ namespace GeraltBot
         // Keep the CommandService and DI container around for use with commands.
         // These two types require you install the Discord.Net.Commands package.
         private readonly CommandService _commands;
+        private readonly CustomCommandService _customCommands;
+        private readonly EventService _events;
+        private readonly ApplicationDbContext _db;
+        private readonly LoggingService _logger;
         private readonly IServiceProvider _services;
         private readonly Config _config;
         private readonly serwerSOAPPortClient _client;
@@ -37,6 +41,7 @@ namespace GeraltBot
         {
             _client = new serwerSOAPPortClient();
             _config = JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json"));
+            _logger = new LoggingService();
             _discord = new DiscordSocketClient(new DiscordSocketConfig
             {
                 // How much logging do you want to see?
@@ -52,7 +57,9 @@ namespace GeraltBot
                 // add the `using` at the top, and uncomment this line:
                 //WebSocketProvider = WS4NetProvider.Instance
             });
-
+            _db = new ApplicationDbContextFactory().CreateDbContext(new string[]{""});
+            _events = new EventService(_db, _discord);
+            _customCommands = new CustomCommandService(_db,_discord, _logger);
             _commands = new CommandService(new CommandServiceConfig
             {
                 // Again, log level:
@@ -62,21 +69,21 @@ namespace GeraltBot
                 // for example, case-insensitive commands.
                 CaseSensitiveCommands = false,
             });
-
             // Subscribe the logging handler to both the client and the CommandService.
-            _discord.Log += Log;
-            _commands.Log += Log;
+            _discord.Log += _logger.LogAsync;
+            _commands.Log += _logger.LogAsync;
             // Setup your DI container.
             _services = ConfigureServices();
         }
 
-        // If any services require the client, or the CommandService, or something else you keep on hand,
-        // pass them as parameters into this method as needed.
-        // If this method is getting pretty long, you can seperate it out into another file using partials.
         private IServiceProvider ConfigureServices()
         {
-            var map = new ServiceCollection().AddDbContext<ApplicationDbContext>()
-                .AddSingleton(_discord).AddSingleton(_config).AddSingleton(_client);
+            var map = new ServiceCollection()
+                .AddDbContext<ApplicationDbContext>()
+                .AddSingleton(_discord)
+                .AddSingleton(_config)
+                .AddSingleton(_client)
+                .AddSingleton(_logger);
 
             // When all your required services are in the collection, build the container.
             // Tip: There's an overload taking in a 'validateScopes' bool to make sure
@@ -84,43 +91,11 @@ namespace GeraltBot
             return map.BuildServiceProvider();
         }
 
-        // Example of a logging handler. This can be re-used by addons
-        // that ask for a Func<LogMessage, Task>.
-        private static Task Log(LogMessage message)
-        {
-            switch (message.Severity)
-            {
-                case LogSeverity.Critical:
-                case LogSeverity.Error:
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    break;
-                case LogSeverity.Warning:
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    break;
-                case LogSeverity.Info:
-                    Console.ForegroundColor = ConsoleColor.White;
-                    break;
-                case LogSeverity.Verbose:
-                case LogSeverity.Debug:
-                    Console.ForegroundColor = ConsoleColor.DarkGray;
-                    break;
-            }
-            Console.WriteLine($"{DateTime.Now,-19} [{message.Severity,8}] {message.Source}: {message.Message} {message.Exception}");
-            Console.ResetColor();
-
-            // If you get an error saying 'CompletedTask' doesn't exist,
-            // your project is targeting .NET 4.5.2 or lower. You'll need
-            // to adjust your project's target framework to 4.6 or higher
-            // (instructions for this are easily Googled).
-            // If you *need* to run on .NET 4.5 for compat/other reasons,
-            // the alternative is to 'return Task.Delay(0);' instead.
-            return Task.CompletedTask;
-        }
-
         private async Task MainAsync()
         {
             // Centralize the logic for commands into a separate method.
             await InitCommands();
+            await InitEvents();
             await _discord.LoginAsync(TokenType.Bot,
                 _config.BotToken);
             await _discord.StartAsync();
@@ -137,6 +112,14 @@ namespace GeraltBot
 
             // Subscribe a handler to see if a message invokes a command.
             _discord.MessageReceived += HandleCommandAsync;
+        }
+
+        private Task InitEvents()
+        {
+            _discord.LeftGuild += _events.LeftGuild;
+            _discord.ChannelDestroyed += _events.ChannelDestroyed;
+
+            return Task.CompletedTask;
         }
 
 
@@ -158,7 +141,10 @@ namespace GeraltBot
             {
                 // Create a Command Context.
                 var context = new SocketCommandContext(_discord, msg);
-
+                if (msg.MentionedChannels.Count > 0)
+                {
+                    await _customCommands.ExecuteAsync(context);
+                }
                 // Execute the command. (result does not indicate a return value, 
                 // rather an object stating if the command executed successfully).
                 var result = await _commands.ExecuteAsync(context, pos, _services);

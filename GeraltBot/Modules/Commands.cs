@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using GeraltBot.Services;
 
 namespace GeraltBot.Modules
 {
@@ -18,16 +19,18 @@ namespace GeraltBot.Modules
 	// If it isn't, it will not be discovered by AddModulesAsync!
 	public class CommandModule : ModuleBase<SocketCommandContext>
 	{
-		private Config _config { get; set; }
-		private ApplicationDbContext _db { get; set; }
-		private serwerSOAPPortClient _client { get; set; }
-		private DiscordSocketClient _discord { get; set; }
-		public CommandModule(ApplicationDbContext db, DiscordSocketClient discord, Config config, serwerSOAPPortClient client)
+		private readonly Config _config;
+		private readonly ApplicationDbContext _db; 
+		private readonly serwerSOAPPortClient _client; 
+		private readonly DiscordSocketClient _discord;
+		private readonly LoggingService _logger;
+		public CommandModule(ApplicationDbContext db, DiscordSocketClient discord, Config config, serwerSOAPPortClient client, LoggingService logger)
 		{
 			_config = config;
 			_client = client;
 			_db = db;
 			_discord = discord;
+			_logger = logger;
 		}
 
 
@@ -39,7 +42,12 @@ namespace GeraltBot.Modules
 				{
 					if (await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).AnyAsync())
 					{
-						await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).ForEachAsync(s => s.ChannelId = (long)channel.Id);
+						await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).ForEachAsync(async s => {
+							await _logger.LogAsync($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator}" +
+								$" ({Context.Message.Author.Id}) changed default channel from" +
+								$" {_discord.GetGuild((ulong)s.ServerId).Channels.Where(c => c.Id == (ulong)s.ChannelId).FirstOrDefault().Name} ({s.ChannelId})" +
+								$" to { Context.Channel.Name} ({Context.Channel.Id})");
+						});
 					}
 					else
 					{
@@ -49,15 +57,23 @@ namespace GeraltBot.Modules
 							ChannelId = (long)Context.Channel.Id
 						};
 						_db.Servers.Add(server);
+
+						await _logger.LogAsync($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator}" +
+								$" ({Context.Message.Author.Id}) has set default channel to {Context.Channel.Name} ({Context.Channel.Id})");
+								
 					}
 
 					await _db.SaveChangesAsync();
 					await ReplyAsync("Zmieniono kanał");
-					Console.WriteLine($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator} ({Context.Message.Author.Id}) changed channel from {Context.Channel.Name} ({Context.Channel.Id}) to {Context.Channel.Name}");
+					Console.WriteLine();
 				}
 			}
 		}
 
+		public async Task ChangeChannel(SocketCommandContext context)
+        {
+			ChangeChannel(context.Message.MentionedChannels.ElementAt(0));
+        }
 		[Command("burza")]
 		[Summary("Psiakrew")]
 		public async Task Psiakrew()
@@ -81,8 +97,8 @@ namespace GeraltBot.Modules
 						.WithColor(new Color(0,0,0))
 						.WithTitle("Szczegóły burzy")
 						.AddField("Lokalizacja", location, true)
-						.AddField("Odleglosc", thunderstorm.odleglosc, true)
-						.AddField("Ilosc", thunderstorm.liczba, true)
+						.AddField("Odległość", thunderstorm.odleglosc, true)
+						.AddField("Liczba wyładowań", thunderstorm.liczba, true)
 						.AddField("Kierunek", thunderstorm.kierunek, true)
 						.Build();
 
@@ -234,15 +250,15 @@ namespace GeraltBot.Modules
 									.WithColor(new Color(0, 0, 0))
 									.WithTitle("Szczegóły burzy")
 									.AddField("Lokalizacja", item.City, true)
-									.AddField("Odleglosc", thunderstorm.odleglosc, true)
-									.AddField("Ilosc", thunderstorm.liczba, true)
+									.AddField("Odległość", thunderstorm.odleglosc, true)
+									.AddField("Liczba wyładowań", thunderstorm.liczba, true)
 									.AddField("Kierunek", thunderstorm.kierunek, true)
 									.Build();
 
 								await ReplyAsync($"{Context.Message.Author.Mention} Burza psiakrew...");
 								await ReplyAsync(embed: embed);
 								var textChannel = server.GetTextChannel((ulong)item.Server.ChannelId);
-								await textChannel.SendMessageAsync(string.Format("{0} Burza psiakrew...", user.Mention));
+								await textChannel.SendMessageAsync($"{user.Mention} Burza psiakrew...");
 								await textChannel.SendMessageAsync(embed: embed);
 								item.StormActive = true;
 							}
@@ -259,41 +275,5 @@ namespace GeraltBot.Modules
 			});
 			return Task.CompletedTask;
 		}
-	}
-	public class Events : ModuleBase<SocketCommandContext>
-	{
-		private readonly ApplicationDbContext _db;
-		private readonly DiscordSocketClient _discord;
-        public Events(DiscordSocketClient discord, ApplicationDbContext db)
-        {
-			_discord = discord;
-			_db = db;
-
-			_discord.LeftGuild += LeftGuild;
-			_discord.ChannelDestroyed += ChannelDestroyed;
-        }
-
-        private async Task ChannelDestroyed(SocketChannel channel)
-        {
-			await _db.Servers
-				.AsAsyncEnumerable()
-				.Where(s => s.ChannelId == (long)channel.Id)
-				.ForEachAsync(s => s.ChannelId = (long)_discord.GetGuild((ulong)s.ServerId).DefaultChannel.Id);
-
-			await _db.SaveChangesAsync();
-		}
-
-        public async Task LeftGuild(SocketGuild guild)
-        {
-			List<User> users = _db.Users
-				.Include(u => u.Server)
-				.Where(u => u.Server.ServerId == (long)guild.Id)
-				.ToListAsync().Result;
-
-			_db.Users.RemoveRange(users);
-			var server = _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)guild.Id).FirstOrDefaultAsync();
-			_db.Servers.Remove(server.Result);
-			await _db.SaveChangesAsync();
-        }
 	}
 }
