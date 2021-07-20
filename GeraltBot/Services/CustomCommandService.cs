@@ -31,7 +31,7 @@ namespace GeraltBot.Services
 
 		public async Task ChangeChannel(SocketGuildChannel channel)
 		{
-			if (channel != null)
+			if (channel != null && Context != null)
 			{
 				if (Context.Guild.GetUser(Context.Message.Author.Id).GuildPermissions.Administrator)
 				{
@@ -63,6 +63,10 @@ namespace GeraltBot.Services
 					await ReplyAsync("Zmieniono kanał");
 				}
 			}
+			if(Context == null)
+            {
+				Console.WriteLine("Context is null!");
+            }
 		}
 
         private async Task ReplyAsync(string message)
