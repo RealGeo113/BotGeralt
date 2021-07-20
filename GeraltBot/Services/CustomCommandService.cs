@@ -61,7 +61,11 @@ namespace GeraltBot.Services
 					await _db.SaveChangesAsync();
 					await ReplyAsync("Zmieniono kanał");
 				}
-			}
+            }
+            else
+            {
+				_logger.LogAsync("channel is null");
+            }
 		}
 
         private async Task ReplyAsync(string message)
