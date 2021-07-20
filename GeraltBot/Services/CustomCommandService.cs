@@ -41,7 +41,8 @@ namespace GeraltBot.Services
 							await _logger.LogAsync($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator}" +
 								$" ({Context.Message.Author.Id}) changed default channel from" +
 								$" {_discord.GetGuild((ulong)s.ServerId).Channels.Where(c => c.Id == (ulong)s.ChannelId).FirstOrDefault().Name} ({s.ChannelId})" +
-								$" to { Context.Channel.Name} ({Context.Channel.Id})");
+								$" to { channel.Name} ({channel.Id})");
+							s.ChannelId = (long)channel.Id;
 						});
 					}
 					else
@@ -49,18 +50,17 @@ namespace GeraltBot.Services
 						Server server = new Server()
 						{
 							ServerId = (long)Context.Guild.Id,
-							ChannelId = (long)Context.Channel.Id
+							ChannelId = (long)channel.Id
 						};
 						_db.Servers.Add(server);
 
 						await _logger.LogAsync($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator}" +
-								$" ({Context.Message.Author.Id}) has set default channel to {Context.Channel.Name} ({Context.Channel.Id})");
+								$" ({Context.Message.Author.Id}) has set default channel to {channel.Name} ({channel.Id})");
 
 					}
 
 					await _db.SaveChangesAsync();
 					await ReplyAsync("Zmieniono kanał");
-					Console.WriteLine();
 				}
 			}
 		}
