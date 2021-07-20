@@ -145,16 +145,13 @@ namespace GeraltBot
                 {
                     await _customCommands.ExecuteAsync(context);
                 }
-                // Execute the command. (result does not indicate a return value, 
-                // rather an object stating if the command executed successfully).
-                var result = await _commands.ExecuteAsync(context, pos, _services);
+                else
+                {
+                    var result = await _commands.ExecuteAsync(context, pos, _services);
 
-                // Uncomment the following lines if you want the bot
-                // to send a message if it failed.
-                // This does not catch errors from commands with 'RunMode.Async',
-                // subscribe a handler for '_commands.CommandExecuted' to see those.
-                if (!result.IsSuccess && result.Error != CommandError.UnknownCommand)
-                    await msg.Channel.SendMessageAsync(result.ErrorReason);
+                    if (!result.IsSuccess && result.Error != CommandError.UnknownCommand)
+                        await msg.Channel.SendMessageAsync(result.ErrorReason);
+                }                
             }
         }
     }

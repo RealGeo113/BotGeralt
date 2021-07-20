@@ -31,19 +31,21 @@ namespace GeraltBot.Services
 
 		public async Task ChangeChannel(SocketGuildChannel channel)
 		{
-			if (channel != null && Context != null)
+			if (channel != null)
 			{
 				if (Context.Guild.GetUser(Context.Message.Author.Id).GuildPermissions.Administrator)
 				{
 					if (await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).AnyAsync())
 					{
-						await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).ForEachAsync(async s => {
+						Server server = await _db.Servers.FindAsync((long)Context.Guild.Id);
+						if(server != null)
+						{
 							await _logger.LogAsync($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator}" +
-								$" ({Context.Message.Author.Id}) changed default channel from" +
-								$" {_discord.GetGuild((ulong)s.ServerId).Channels.Where(c => c.Id == (ulong)s.ChannelId).FirstOrDefault().Name} ({s.ChannelId})" +
-								$" to { channel.Name} ({channel.Id})");
-							s.ChannelId = (long)channel.Id;
-						});
+							$" ({Context.Message.Author.Id}) changed default channel from" +
+							$" {_discord.GetGuild((ulong)server.ServerId).Channels.Where(c => c.Id == (ulong)server.ChannelId).FirstOrDefault().Name} ({server.ChannelId})" +
+							$" to { channel.Name} ({channel.Id})");
+								server.ChannelId = (long)channel.Id;
+						}
 					}
 					else
 					{
@@ -63,10 +65,6 @@ namespace GeraltBot.Services
 					await ReplyAsync("Zmieniono kanał");
 				}
 			}
-			if(Context == null)
-            {
-				Console.WriteLine("Context is null!");
-            }
 		}
 
         private async Task ReplyAsync(string message)
