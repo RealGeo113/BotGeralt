@@ -35,21 +35,18 @@ namespace GeraltBot.Services
 			{
 				if (Context.Guild.GetUser(Context.Message.Author.Id).GuildPermissions.Administrator)
 				{
-					if (await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).AnyAsync())
-					{
-						Server server = await _db.Servers.FindAsync((long)Context.Guild.Id);
-						if(server != null)
-						{
-							await _logger.LogAsync($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator}" +
-							$" ({Context.Message.Author.Id}) changed default channel from" +
-							$" {_discord.GetGuild((ulong)server.ServerId).Channels.Where(c => c.Id == (ulong)server.ChannelId).FirstOrDefault().Name} ({server.ChannelId})" +
-							$" to { channel.Name} ({channel.Id})");
-								server.ChannelId = (long)channel.Id;
-						}
+					Server server = await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).FirstOrDefaultAsync();
+					if (server != null)
+					{	
+						await _logger.LogAsync($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator}" +
+						$" ({Context.Message.Author.Id}) changed default channel from" +
+						$" {_discord.GetGuild((ulong)server.ServerId).Channels.Where(c => c.Id == (ulong)server.ChannelId).FirstOrDefault().Name} ({server.ChannelId})" +
+						$" to { channel.Name} ({channel.Id})");
+						server.ChannelId = (long)channel.Id;
 					}
 					else
 					{
-						Server server = new Server()
+						server = new Server()
 						{
 							ServerId = (long)Context.Guild.Id,
 							ChannelId = (long)channel.Id
