@@ -36,36 +36,38 @@ namespace GeraltBot.Modules
 
 		public async Task ChangeChannel(SocketGuildChannel channel)
         {
-			if(channel != null)
-            {
+			if (channel != null)
+			{
 				if (Context.Guild.GetUser(Context.Message.Author.Id).GuildPermissions.Administrator)
 				{
-					if (await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).AnyAsync())
+					Server server = await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).FirstOrDefaultAsync();
+					if (server != null)
 					{
-						await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).ForEachAsync(async s => {
+						SocketGuildChannel guildChannel = _discord.GetGuild((ulong)server.ServerId).Channels.Where(c => c.Id == (ulong)server.ChannelId).FirstOrDefault();
+						if (guildChannel != null)
+						{
 							await _logger.LogAsync($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator}" +
-								$" ({Context.Message.Author.Id}) changed default channel from" +
-								$" {_discord.GetGuild((ulong)s.ServerId).Channels.Where(c => c.Id == (ulong)s.ChannelId).FirstOrDefault().Name} ({s.ChannelId})" +
-								$" to { Context.Channel.Name} ({Context.Channel.Id})");
-						});
+							$" ({Context.Message.Author.Id}) changed default channel from" +
+							$" {guildChannel.Name} ({server.ChannelId})" +
+							$" to { channel.Name} ({channel.Id})");
+							server.ChannelId = (long)channel.Id;
+						}
+						else return;
 					}
 					else
 					{
-						Server server = new Server()
+						server = new Server()
 						{
 							ServerId = (long)Context.Guild.Id,
-							ChannelId = (long)Context.Channel.Id
+							ChannelId = (long)channel.Id
 						};
 						_db.Servers.Add(server);
 
 						await _logger.LogAsync($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator}" +
-								$" ({Context.Message.Author.Id}) has set default channel to {Context.Channel.Name} ({Context.Channel.Id})");
-								
+								$" ({Context.Message.Author.Id}) has set default channel to {channel.Name} ({channel.Id})");
 					}
-
 					await _db.SaveChangesAsync();
 					await ReplyAsync("Zmieniono kanał");
-					Console.WriteLine();
 				}
 			}
 		}

@@ -37,12 +37,15 @@ namespace GeraltBot.Services
 				{
 					Server server = await _db.Servers.AsAsyncEnumerable().Where(s => s.ServerId == (long)Context.Guild.Id).FirstOrDefaultAsync();
 					if (server != null)
-					{	
-						await _logger.LogAsync($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator}" +
-						$" ({Context.Message.Author.Id}) changed default channel from" +
-						$" ({server.ChannelId})" + //{_discord.GetGuild((ulong)server.ServerId).Channels.Where(c => c.Id == (ulong)server.ChannelId).FirstOrDefault().Name} 
-						$" to { channel.Name} ({channel.Id})");
-						server.ChannelId = (long)channel.Id;
+					{
+						SocketGuildChannel guildChannel = _discord.GetGuild((ulong)server.ServerId).Channels.Where(c => c.Id == (ulong)server.ChannelId).FirstOrDefault();
+						if(guildChannel != null) {
+							await _logger.LogAsync($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator}" +
+							$" ({Context.Message.Author.Id}) changed default channel from" +
+							$" {guildChannel.Name} ({server.ChannelId})" + 
+							$" to { channel.Name} ({channel.Id})");
+							server.ChannelId = (long)channel.Id;
+						}else return;
 					}
 					else
 					{
@@ -60,11 +63,6 @@ namespace GeraltBot.Services
 					await ReplyAsync("Zmieniono kanał");
 				}
             }
-            else
-            {
-				await _logger.LogAsync("channel is null");
-            }
-			await _logger.LogAsync("REEEEEEEEEEEEEEEEEEEEEEE");
 		}
 
         private async Task ReplyAsync(string message)
