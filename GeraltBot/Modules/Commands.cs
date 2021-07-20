@@ -70,10 +70,6 @@ namespace GeraltBot.Modules
 			}
 		}
 
-		public async Task ChangeChannel(SocketCommandContext context)
-        {
-			ChangeChannel(context.Message.MentionedChannels.ElementAt(0));
-        }
 		[Command("burza")]
 		[Summary("Psiakrew")]
 		public async Task Psiakrew()

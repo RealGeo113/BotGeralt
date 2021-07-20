@@ -26,7 +26,7 @@ namespace GeraltBot.Services
         public async Task ExecuteAsync(SocketCommandContext context)
         {
             Context = context;
-			ChangeChannel(context.Message.MentionedChannels.ElementAt(0));
+			await ChangeChannel(context.Message.MentionedChannels.ElementAt(0));
         }
 
 		public async Task ChangeChannel(SocketGuildChannel channel)
@@ -64,8 +64,9 @@ namespace GeraltBot.Services
             }
             else
             {
-				_logger.LogAsync("channel is null");
+				await _logger.LogAsync("channel is null");
             }
+			await _logger.LogAsync("REEEEEEEEEEEEEEEEEEEEEEE");
 		}
 
         private async Task ReplyAsync(string message)
