@@ -165,6 +165,7 @@ namespace GeraltBot.Modules
 					}
 					await _db.SaveChangesAsync();
 					await ReplyAsync($"{Context.Message.Author.Mention} Dodano do bazy");
+					await _logger.LogAsync($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator} ({Context.Message.Author.Id}) saved location {location} on server {Context.Guild.Name} ({Context.Guild.Id})");
 				}
 				else
 				{
@@ -187,8 +188,8 @@ namespace GeraltBot.Modules
 						user.ApiKey = key;
 					}
 					await _db.SaveChangesAsync();
-					await ReplyAsync($"{Context.Message.Author.Mention} Klucz API został zmieniony.");
-					Console.WriteLine($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator} ({Context.Message.Author.Id}) changed API Key to: {key}");
+					await ReplyAsync($"{Context.Message.Author.Mention} Klucz API został zmieniony na `{key}` .");
+					await _logger.LogAsync($"User {Context.Message.Author.Username}#{Context.Message.Author.Discriminator} ({Context.Message.Author.Id}) changed API Key to: {key}");
                 }
                 else
                 {
@@ -212,16 +213,18 @@ namespace GeraltBot.Modules
 
 	public class StormModule : ModuleBase<SocketCommandContext>
 	{
-		private ApplicationDbContext _db { get; set; }
-		private DiscordSocketClient _discord { get; set; }
-		private serwerSOAPPortClient _client { get; set; }
-		private Config _config { get; set; }
-		public StormModule(ApplicationDbContext db, DiscordSocketClient discord, Config config, serwerSOAPPortClient client)
+		private readonly ApplicationDbContext _db;
+		private readonly DiscordSocketClient _discord;
+		private readonly serwerSOAPPortClient _client;
+		private readonly Config _config;
+		private readonly LoggingService _logger;
+		public StormModule(ApplicationDbContext db, DiscordSocketClient discord, Config config, serwerSOAPPortClient client, LoggingService logger)
 		{
 			_db = db;
 			_discord = discord;
 			_client = client;
 			_config = config;
+			_logger = logger;
 
 			CheckStorm();
 		}
@@ -253,18 +256,23 @@ namespace GeraltBot.Modules
 									.AddField("Kierunek", thunderstorm.kierunek, true)
 									.Build();
 
-								await ReplyAsync($"{Context.Message.Author.Mention} Burza psiakrew...");
-								await ReplyAsync(embed: embed);
 								var textChannel = server.GetTextChannel((ulong)item.Server.ChannelId);
 								await textChannel.SendMessageAsync($"{user.Mention} Burza psiakrew...");
 								await textChannel.SendMessageAsync(embed: embed);
 								item.StormActive = true;
+								await _logger.LogAsync($"Storm started for user {user.Username}#{user.Discriminator} ({item.UserId}). Location: {item.City}");
 							}
 							item.LastStorm = DateTime.Now;
 						}
 						else
 						{
-							if (span.TotalMinutes > 30 && item.StormActive) item.StormActive = false;
+							if (span.TotalMinutes > 30 && item.StormActive) 
+							{ 
+								item.StormActive = false;
+								SocketUser user = _discord.GetUser((ulong)item.UserId);
+								await _logger.LogAsync($"Storm ended for user {user.Username}#{user.Discriminator} ({item.UserId}). Location: {item.City}");
+							}
+
 						}
 						await _db.SaveChangesAsync();
 					}

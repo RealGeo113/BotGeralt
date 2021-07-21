@@ -36,9 +36,38 @@ namespace GeraltBot.Services
 
 			return Task.CompletedTask;
 		}
-        public Task LogAsync(string message)
+
+        public enum Severity
         {
-            Console.WriteLine($"[{DateTime.Now,-19}] [{"Info",8}] {"Client", 8}: {message}");
+            Critical,
+            Error,
+            Warning,
+            Info,
+            Verbose,
+            Debug
+        }
+
+        public Task LogAsync(string message, Severity severity = Severity.Info)
+        {
+            switch (severity)
+            {
+                case Severity.Critical:
+                case Severity.Error:
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    break;
+                case Severity.Warning:
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    break;
+                case Severity.Info:
+                    Console.ForegroundColor = ConsoleColor.White;
+                    break;
+                case Severity.Verbose:
+                case Severity.Debug:
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    break;
+            }
+
+            Console.WriteLine($"[{DateTime.Now,-19}] [{severity,8}] {"Client", 8}: {message}");
             return Task.CompletedTask;
         }
     }
