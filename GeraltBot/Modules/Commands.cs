@@ -206,7 +206,7 @@ namespace GeraltBot.Modules
 		[Summary("Changes channel Geralt displies warning messages on")]
 		[RequireUserPermission(GuildPermission.Administrator)]
 		public async Task ChangeChannelCommand()
-        {
+		{
 			await ChangeChannel(Context.Guild.Channels.Where(c => c.Id == Context.Channel.Id).FirstOrDefault());
 		}
 	}
@@ -238,7 +238,7 @@ namespace GeraltBot.Modules
 					List<User> users = await _db.Users.Include(u => u.Server).AsAsyncEnumerable().ToListAsync();
 					foreach (User item in users)
 					{
-						var thunderstorm = await _client.szukaj_burzyAsync(item.y.ToString().Replace(',', '.'), item.x.ToString().Replace(',', '.'), 10, item.ApiKey);
+						var thunderstorm = await _client.szukaj_burzyAsync(item.y.ToString().Replace(',', '.'), item.x.ToString().Replace(',', '.'), 25, item.ApiKey);
 						TimeSpan span = DateTime.Now - item.LastStorm;
 						if (thunderstorm.odleglosc != 0 && thunderstorm.liczba > 10)
 						{
